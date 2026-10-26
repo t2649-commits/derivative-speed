@@ -1,0 +1,448 @@
+<title>도함수 개형 스피드</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=STIX+Two+Text:ital@1&display=swap">
+<style>
+/* layout: 모눈 학습지 위에 게임 HUD. 상단 진행·점수, 타이머 막대, 도함수 그림, 6개 보기 */
+:root{
+  --paper:#F6F7FA; --card:#FFFFFF; --ink:#1C2433; --muted:#5B6476; --line:#D9DEE8; --grid:#E9EDF4;
+  --accent:#C93A6E; --accent-soft:#FBE3EC; --ok:#1E7F55; --ok-soft:#DDF2E7; --bad:#B9382F; --bad-soft:#FBE4E1; --gold:#B7791F;
+  --f-display:"Gowun Batang","Noto Serif KR",serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-math:"STIX Two Text","Times New Roman",serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#11151C; --card:#181D27; --ink:#E6E9F0; --muted:#9AA3B5; --line:#2B3241; --grid:#191F29;
+  --accent:#F07AA5; --accent-soft:#3B1E2A; --ok:#58C793; --ok-soft:#14301F; --bad:#F2877F; --bad-soft:#3A1C1A; --gold:#E8B45A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#11151C; --card:#181D27; --ink:#E6E9F0; --muted:#9AA3B5; --line:#2B3241; --grid:#191F29;
+  --accent:#F07AA5; --accent-soft:#3B1E2A; --ok:#58C793; --ok-soft:#14301F; --bad:#F2877F; --bad-soft:#3A1C1A; --gold:#E8B45A; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.app{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(1.8rem,5vw,2.6rem);line-height:1.15;margin:0;text-wrap:balance}
+h2{font-family:var(--f-display);font-weight:700;font-size:1.25rem;margin:0}
+.m{font-family:var(--f-math);font-style:italic}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px clamp(16px,3vw,26px)}
+.intro{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;align-items:start}
+.intro .lead{display:flex;flex-direction:column;gap:14px}
+.kicker{font-size:.8rem;letter-spacing:.06em;color:var(--accent);font-weight:600}
+.rules{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;color:var(--muted)}
+.rules b{color:var(--ink);font-weight:600}
+.field{display:flex;flex-direction:column;gap:6px}
+label{font-weight:500;font-size:.92rem}
+input[type=text]{font:inherit;padding:10px 14px;border-radius:10px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);width:100%}
+input[type=text]:focus{outline:none;border-color:var(--accent)}
+.err{color:var(--bad);font-size:.85rem;min-height:1.2em;margin:0}
+button.btn{font:inherit;font-weight:600;border-radius:999px;padding:11px 24px;cursor:pointer;border:1.5px solid var(--accent);background:var(--accent);color:var(--card)}
+button.btn.ghost{background:transparent;color:var(--accent)}
+button.btn:focus-visible,.opt:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+/* leaderboard */
+.lb{display:flex;flex-direction:column;gap:10px}
+.lb ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.lb li{display:grid;grid-template-columns:2.2em minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.lb li:last-child{border-bottom:none}
+.lb .rk{font-family:var(--f-display);font-weight:700;color:var(--muted);text-align:center}
+.lb li:nth-child(-n+3) .rk{color:var(--gold)}
+.lb .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb .sc{font-weight:600}
+.lb li.me{background:var(--accent-soft);border-radius:8px}
+.lb .empty,.lb .status{color:var(--muted);font-size:.9rem;margin:0}
+/* play */
+.hud{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;font-variant-numeric:tabular-nums}
+.hud .qn{font-family:var(--f-display);font-weight:700;font-size:1.3rem}
+.hud .qn small{font-family:var(--f-body);font-weight:400;color:var(--muted);font-size:.9rem}
+.hud .right{display:flex;gap:18px;align-items:flex-end}
+.stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+.stat span{font-size:.75rem;color:var(--muted)}
+.stat b{font-size:1.5rem;font-weight:600;position:relative}
+.combo b{color:var(--accent)}
+.pop{position:absolute;right:0;top:-1.3em;font-size:1rem;color:var(--ok);font-weight:600;animation:pop .9s ease-out forwards;white-space:nowrap}
+@keyframes pop{from{opacity:1;transform:translateY(6px)}to{opacity:0;transform:translateY(-10px)}}
+.timer{height:12px;border-radius:999px;background:var(--line);overflow:hidden;position:relative}
+.timer i{display:block;height:100%;background:var(--accent);border-radius:999px;transform-origin:left;width:100%}
+.timer.low i{background:var(--bad)}
+.tleft{font-variant-numeric:tabular-nums;font-weight:600;color:var(--muted);font-size:.9rem;min-width:3.2em;text-align:right}
+.q{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,280px);gap:16px;align-items:center}
+.q p{margin:0;font-size:1.05rem}
+.fp svg{width:100%;height:auto;display:block}
+.fp text{font-family:var(--f-math);font-style:italic;font-size:14px;fill:var(--ink)}
+.opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.opt{position:relative;background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:6px 8px 8px;cursor:pointer;color:var(--ink);font:inherit;text-align:left;transition:border-color .12s,background .12s,transform .08s}
+.opt:hover:not([disabled]){border-color:var(--accent)}
+.opt:active:not([disabled]){transform:scale(.98)}
+.opt .lab{font-family:var(--f-display);font-size:1.1rem;color:var(--muted);display:flex;justify-content:space-between}
+.opt .lab kbd{font-family:var(--f-body);font-size:.7rem;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--muted)}
+.opt svg{width:100%;height:auto;display:block}
+.opt.ok{border-color:var(--ok);background:var(--ok-soft)} .opt.ok .lab{color:var(--ok)}
+.opt.bad{border-color:var(--bad);background:var(--bad-soft)} .opt.bad .lab{color:var(--bad)}
+.opt.dim svg{opacity:.35}
+.opt[disabled]{cursor:default}
+.verdict{min-height:1.6em;margin:0;font-weight:600;text-align:center}
+.verdict.ok{color:var(--ok)} .verdict.bad{color:var(--bad)}
+.stage{position:relative}
+.cd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--card);border-radius:14px;z-index:2;font-family:var(--f-display);font-weight:700;font-size:6rem;color:var(--accent)}
+/* result */
+.res-top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
+.big{font-family:var(--f-display);font-weight:700;font-size:clamp(3rem,10vw,4.5rem);line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.tile{background:var(--paper);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column}
+.tile span{font-size:.78rem;color:var(--muted)} .tile b{font-size:1.3rem;font-weight:600;font-variant-numeric:tabular-nums}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.review{display:flex;flex-direction:column;gap:14px}
+.rv{border-top:1px solid var(--line);padding-top:12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.rv h3{grid-column:1/-1;margin:0;font-size:.95rem;font-weight:600}
+.rv .mini{display:flex;flex-direction:column;gap:2px;font-size:.78rem;color:var(--muted)}
+.rv .mini svg{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.rv .mini text{font-family:var(--f-math);font-style:italic;font-size:14px;fill:var(--ink)}
+.rv .exp{grid-column:1/-1;font-size:.9rem;display:flex;flex-direction:column;gap:6px}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;font-variant-numeric:tabular-nums}
+td,th{border:1px solid var(--line);padding:4px 10px;text-align:center;white-space:nowrap;font-weight:400}
+th{font-family:var(--f-math);font-style:italic}
+.tag{font-size:.72rem;color:var(--accent);display:block;line-height:1.2}
+ul.why{margin:0;padding-left:1.2em}
+.note{color:var(--muted);font-size:.85rem;margin:0}
+.teacher{border-top:1px solid var(--line);padding-top:10px}
+.teacher summary{cursor:pointer;color:var(--muted);font-size:.9rem;font-weight:500}
+.teacher .tbody{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+input[type=number]{font:inherit;width:5em;padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);font-variant-numeric:tabular-nums}
+input[type=number]:focus{outline:none;border-color:var(--accent)}
+#tLink{font-size:.85rem}
+button.btn.small{padding:7px 14px;font-size:.88rem;white-space:nowrap}
+.lbt{font-family:var(--f-body);font-weight:400;font-size:.9rem;color:var(--muted)}
+@media (max-width:640px){.intro,.grid2{grid-template-columns:minmax(0,1fr)} .q{grid-template-columns:minmax(0,1fr)} .q .fp{max-width:320px} .opts{grid-template-columns:repeat(2,minmax(0,1fr))} .opt .lab kbd{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="app">
+
+<section id="intro" class="intro">
+  <div class="panel lead">
+    <span class="kicker">수학Ⅱ · 함수의 극대와 극소</span>
+    <h1>도함수 개형 스피드</h1>
+    <ul class="rules">
+      <li>도함수 <span class="m">y = f ′(x)</span>의 그래프를 보고 <span class="m">y = f(x)</span>의 개형을 골라요.</li>
+      <li>문제는 <b>20개</b>, 한 문제에 <b class="tlimit">5초</b>예요.</li>
+      <li>정답 100점에 남은 시간만큼 최대 100점이 더해지고, 연속으로 맞히면 콤보 점수가 붙어요.</li>
+      <li>컴퓨터에서는 숫자 키 <b>1~6</b>으로도 고를 수 있어요.</li>
+    </ul>
+    <form id="startForm" class="field" novalidate>
+      <label for="nick">닉네임</label>
+      <input type="text" id="nick" maxlength="12" placeholder="예: 3반 김수학" autocomplete="off">
+      <p class="err" id="nickErr"></p>
+      <div class="row"><button class="btn" type="submit" id="startBtn">시작하기</button></div>
+    </form>
+    <details class="teacher" id="teacher">
+      <summary>선생님 설정</summary>
+      <div class="tbody">
+        <label for="tset">한 문제당 제한시간</label>
+        <div class="row" style="flex-wrap:nowrap">
+          <input type="number" id="tset" min="3" max="30" step="1" value="5">
+          <span>초</span>
+          <button class="btn ghost small" type="button" id="tApply">적용하고 링크 복사</button>
+        </div>
+        <p class="err" id="tErr"></p>
+        <input type="text" id="tLink" readonly hidden aria-label="학생에게 보낼 링크">
+        <p class="note" id="tNote">3초에서 30초까지 정할 수 있어요. 만든 링크로 들어온 학생은 그 시간으로 풀고, 랭킹도 시간별로 따로 쌓여요.</p>
+      </div>
+    </details>
+  </div>
+  <div class="panel lb">
+    <h2>랭킹 <small class="lbt">· <span class="tlimit">5초</span></small></h2>
+    <p class="status" id="lbIntroStatus">불러오는 중…</p>
+    <ol id="lbIntro"></ol>
+  </div>
+</section>
+
+<section id="play" hidden>
+  <div class="panel stage" style="display:flex;flex-direction:column;gap:14px">
+    <div class="cd" id="cd" hidden>3</div>
+    <div class="hud">
+      <div class="qn" id="qn">1 <small>/ 20</small></div>
+      <div class="right">
+        <div class="stat combo"><span>콤보</span><b id="combo">0</b></div>
+        <div class="stat"><span>점수</span><b id="score">0</b></div>
+      </div>
+    </div>
+    <div class="row" style="flex-wrap:nowrap">
+      <div class="timer" id="timer" style="flex:1"><i id="bar"></i></div>
+      <span class="tleft" id="tleft">5.0초</span>
+    </div>
+    <div class="q">
+      <p>도함수 <span class="m">y = f ′(x)</span>의 그래프가 그림과 같을 때, 다항함수 <span class="m">y = f(x)</span>의 그래프의 개형은?</p>
+      <div class="fp" id="fp"></div>
+    </div>
+    <div class="opts" id="opts"></div>
+    <p class="verdict" id="verdict" aria-live="polite"></p>
+  </div>
+</section>
+
+<section id="result" hidden style="display:flex;flex-direction:column;gap:16px">
+  <div class="panel">
+    <div class="res-top">
+      <div><span class="kicker" id="resName"></span><div class="big" id="resScore">0</div></div>
+      <div class="row"><button class="btn" id="againBtn" type="button">다시 도전</button><button class="btn ghost" id="homeBtn" type="button">처음 화면</button></div>
+    </div>
+    <div class="tiles">
+      <div class="tile"><span>맞힌 문제</span><b id="resCorrect">0 / 20</b></div>
+      <div class="tile"><span>평균 응답</span><b id="resAvg">-</b></div>
+      <div class="tile"><span>최고 콤보</span><b id="resCombo">0</b></div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="panel lb">
+      <h2>랭킹 <small class="lbt">· <span class="tlimit">5초</span></small></h2>
+      <p class="status" id="lbResStatus"></p>
+      <ol id="lbRes"></ol>
+    </div>
+    <div class="panel review">
+      <h2>틀린 문제 다시 보기</h2>
+      <div id="review" class="review"></div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+const API='/api/leaderboard';
+const NQ=20, TMIN=3, TMAX=30;
+function readLimit(){try{const v=parseInt(new URLSearchParams(location.search).get('t'),10);if(v>=TMIN&&v<=TMAX)return v}catch(e){}return 5}
+let LIMIT=readLimit(), QTIME=LIMIT*1000;
+const PROBLEMS=[
+ {k:2, r:[]},
+ {k:-1,r:[]},
+ {k:3, r:[[-1,1],[2,1]]},
+ {k:-3,r:[[0,1],[2,1]]},
+ {k:3, r:[[1,2]]},
+ {k:-4,r:[[0,2],[1,1]]},
+ {k:4, r:[[-1,1],[1,1],[3,1]]},
+ {k:4, r:[[0,1],[3,2]]},
+ {k:-4,r:[[-2,1],[0,1],[2,1]]},
+ {k:4, r:[[-1,2],[2,1]]},
+ {k:-4,r:[[1,3]]},
+ {k:5, r:[[-1,1],[0,2],[2,1]]},
+ {k:2, r:[[-1,1]]},
+ {k:-2,r:[[1,1]]},
+ {k:-3,r:[[-1,2]]},
+ {k:4, r:[[1,3]]},
+ {k:-4,r:[[-1,1],[2,2]]},
+ {k:5, r:[[0,3],[2,1]]},
+ {k:-5,r:[[-1,1],[1,1],[2,2]]},
+ {k:5, r:[[-2,1],[-1,1],[1,1],[2,1]]},
+ {k:-5,r:[[-1,2],[1,2]]}
+];
+const LABELS=['①','②','③','④','⑤','⑥'];
+const NS='http://www.w3.org/2000/svg';
+const $=id=>document.getElementById(id);
+const neg=n=>String(n).replace('-','−');
+
+/* ---------- math ---------- */
+function polyFrom(k,roots){let c=[k];for(const [r,m] of roots)for(let i=0;i<m;i++){const n=new Array(c.length+1).fill(0);c.forEach((a,j)=>{n[j+1]+=a;n[j]-=a*r});c=n}return c}
+const ev=(c,x)=>c.reduceRight((s,a)=>s*x+a,0);
+const integ=c=>[0,...c.map((a,i)=>a/(i+1))];
+const sorted=r=>[...r].sort((a,b)=>a[0]-b[0]);
+function signs(k,roots){const R=sorted(roots);const s=new Array(R.length+1);s[R.length]=Math.sign(k);for(let i=R.length-1;i>=0;i--)s[i]=s[i+1]*(R[i][1]%2?-1:1);return s}
+function sig(k,roots){const R=sorted(roots),s=signs(k,R);let t=[s[0]>0?'+':'-'];R.forEach((_,i)=>{t.push(s[i]===s[i+1]?'flat':(s[i]<0?'min':'max'));t.push(s[i+1]>0?'+':'-')});return t.join('|')}
+function candidates(p){
+  const R=sorted(p.r),base=R.map(x=>({r:x[0],o:x[1]}));
+  const sets=[{roots:base,d:0}];
+  if(R.length>1)R.forEach((_,i)=>sets.push({roots:base.filter((_,j)=>j!==i),d:1}));
+  if(R.length){const lo=R[0][0],hi=R[R.length-1][0];
+    sets.push({roots:[{r:lo-2,o:null},...base],d:1});sets.push({roots:[...base,{r:hi+2,o:null}],d:1});}
+  else{sets.push({roots:[{r:0,o:null}],d:1});sets.push({roots:[{r:-1,o:null},{r:1,o:null}],d:2});}
+  const target=sig(p.k,p.r),best=new Map();
+  for(const S of sets){const n=S.roots.length;
+    for(let mask=0;mask<(1<<n);mask++)for(const sg of [1,-1]){
+      let d=S.d+(sg<0?1:0);
+      const roots=S.roots.map((x,i)=>{const m=(mask>>i)&1?2:1;if(x.o!==null&&(m%2)!==(x.o%2))d++;return [x.r,m]});
+      const k=p.k*sg,s=sig(k,roots);if(s===target)continue;
+      if(!best.has(s)||best.get(s).d>d)best.set(s,{k,roots,d,s});
+    }}
+  return [...best.values()];
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function pickDistractors(p){return shuffle(candidates(p)).sort((a,b)=>a.d-b.d).slice(0,5)}
+
+/* ---------- drawing ---------- */
+function el(tag,attrs={},parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+function domainOf(roots,incl0){const xs=roots.map(r=>r[0]);if(incl0)xs.push(0);if(!xs.length)return [-1.5,1.5];const lo=Math.min(...xs),hi=Math.max(...xs),pad=Math.max(1.2,(hi-lo)*0.38);return [lo-pad,hi+pad]}
+const uid=()=>Math.random().toString(36).slice(2,9);
+
+function shapeSVG(k,roots){
+  const R=sorted(roots),W=180,H=118,F=integ(polyFrom(k,R)),[a,b]=domainOf(R,false);
+  const N=300,pts=[];let mn=Infinity,mx=-Infinity;
+  for(let i=0;i<=N;i++){const x=a+(b-a)*i/N,y=ev(F,x);pts.push([x,y]);mn=Math.min(mn,y);mx=Math.max(mx,y)}
+  let lo=mn,hi=mx;
+  if(R.length){const cv=R.map(r=>ev(F,r[0])),cmn=Math.min(...cv),cmx=Math.max(...cv),sp=cmx-cmn;if(sp>1e-9){lo=Math.max(mn,cmn-0.9*sp);hi=Math.min(mx,cmx+0.9*sp)}}
+  const X=x=>8+(x-a)/(b-a)*(W-16),Y=y=>H-10-(y-lo)/(hi-lo)*(H-20);
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,'aria-hidden':'true'});const id='c'+uid();
+  const cp=el('clipPath',{id},el('defs',{},svg));el('rect',{x:0,y:2,width:W,height:H-4},cp);
+  el('path',{d:pts.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join(''),fill:'none',stroke:'var(--ink)','stroke-width':2.4,'stroke-linecap':'round','stroke-linejoin':'round','clip-path':`url(#${id})`},svg);
+  return svg;
+}
+function fpSVG(p){
+  const R=sorted(p.r),C=polyFrom(p.k,R),[a,b]=domainOf(R,true),W=300,H=200;
+  const N=300,pts=[];for(let i=0;i<=N;i++){const x=a+(b-a)*i/N;pts.push([x,ev(C,x)])}
+  let ext;
+  if(R.length){const ys=[0];pts.forEach(([x,y])=>{if(x>=R[0][0]-0.6&&x<=R[R.length-1][0]+0.6)ys.push(y)});ext=Math.max(Math.abs(Math.min(...ys)),Math.abs(Math.max(...ys)),1e-6)}
+  else ext=Math.abs(p.k);
+  const mx=ext*1.6,X=x=>14+(x-a)/(b-a)*(W-28),Y=y=>H/2-(y/mx)*(H/2-16);
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':'도함수 그래프'});const id='f'+uid();
+  const cp=el('clipPath',{id},el('defs',{},svg));el('rect',{x:0,y:6,width:W,height:H-12},cp);
+  const st={stroke:'var(--muted)','stroke-width':1.2,fill:'none'};
+  el('line',{x1:4,y1:Y(0),x2:W-6,y2:Y(0),...st},svg);
+  el('path',{d:`M${W-12} ${Y(0)-4}L${W-5} ${Y(0)}L${W-12} ${Y(0)+4}`,...st},svg);
+  el('line',{x1:X(0),y1:H-4,x2:X(0),y2:6,...st},svg);
+  el('path',{d:`M${X(0)-4} 12L${X(0)} 5L${X(0)+4} 12`,...st},svg);
+  const t=(x,y,s,anchor)=>{const e=el('text',{x,y,'text-anchor':anchor||'start'},svg);e.textContent=s};
+  t(W-14,Y(0)+18,'x','middle');t(X(0)+8,16,'y');t(X(0)-6,Y(0)+17,'O','end');
+  R.forEach(([r])=>{if(r!==0){el('line',{x1:X(r),y1:Y(0)-3,x2:X(r),y2:Y(0)+3,stroke:'var(--muted)'},svg);const above=ev(C,r+0.15)<0&&ev(C,r-0.15)<0;t(X(r),above?Y(0)-8:Y(0)+18,neg(r),'middle')}});
+  el('path',{d:pts.map((q,i)=>(i?'L':'M')+X(q[0]).toFixed(1)+' '+Y(q[1]).toFixed(1)).join(''),fill:'none',stroke:'var(--ink)','stroke-width':2.2,'clip-path':`url(#${id})`},svg);
+  const lab=el('text',{x:W-12,y:p.k>0&&!R.length?Y(0)+34:24,'text-anchor':'end'},svg);lab.textContent='y = f ′(x)';
+  return svg;
+}
+function signTable(p){
+  const R=sorted(p.r),s=signs(p.k,R);
+  if(!R.length)return `<p><span class="m">f ′(x)</span> = ${neg(p.k)} 으로 항상 ${p.k>0?'양수':'음수'}이므로 <span class="m">f(x)</span>는 계속 ${p.k>0?'증가':'감소'}하는 직선이에요. 극값은 없어요.</p>`;
+  let h='<tr><th>x</th>',d='<tr><th>f ′(x)</th>',f='<tr><th>f(x)</th>';
+  R.forEach(([r],i)=>{h+=`<td>…</td><td>${neg(r)}</td>`;d+=`<td>${s[i]>0?'+':'−'}</td><td>0</td>`;
+    const kind=s[i]===s[i+1]?'':(s[i]<0?'극소':'극대');f+=`<td>${s[i]>0?'↗':'↘'}</td><td>${kind?`<span class="tag">${kind}</span>`:''}</td>`});
+  const L=R.length;h+='<td>…</td></tr>';d+=`<td>${s[L]>0?'+':'−'}</td></tr>`;f+=`<td>${s[L]>0?'↗':'↘'}</td></tr>`;
+  const why='<ul class="why">'+R.map(([r],i)=>{const x=`<span class="m">x</span> = ${neg(r)}`;
+    if(s[i]===s[i+1])return `<li>${x}: <span class="m">f ′</span>(${neg(r)}) = 0이지만 부호가 그대로라 극값이 아니에요.</li>`;
+    return `<li>${x}: 부호가 ${s[i]<0?'−에서 +':'+에서 −'}로 바뀌므로 ${s[i]<0?'극소':'극대'}예요.</li>`}).join('')+'</ul>';
+  return `<div class="tblwrap"><table>${h}${d}${f}</table></div>${why}`;
+}
+
+/* ---------- leaderboard ---------- */
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function renderLB(listEl,statusEl,data,meId){
+  listEl.innerHTML='';
+  if(!data){statusEl.hidden=false;statusEl.textContent='랭킹 서버에 연결할 수 없어요. 넷리파이에 배포하면 랭킹이 표시돼요.';return}
+  if(!data.top.length){statusEl.hidden=false;statusEl.textContent='아직 기록이 없어요. 첫 기록을 남겨 보세요.';return}
+  statusEl.hidden=!!(meId===undefined);
+  data.top.forEach((e,i)=>{const li=document.createElement('li');if(meId&&e.id===meId)li.className='me';
+    li.innerHTML=`<span class="rk">${i+1}</span><span class="nm">${esc(e.name)}</span><span class="sc">${e.score.toLocaleString()}</span>`;listEl.appendChild(li)});
+}
+async function getLB(){try{const r=await fetch(`${API}?limit=${LIMIT}`,{cache:'no-store'});if(!r.ok)throw 0;return await r.json()}catch(e){return null}}
+async function postLB(name,score,correct){try{const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,score,correct,limit:LIMIT})});if(!r.ok)throw 0;return await r.json()}catch(e){return null}}
+async function refreshIntroLB(){const st=$('lbIntroStatus');st.hidden=false;st.textContent='불러오는 중…';const d=await getLB();renderLB($('lbIntro'),st,d)}
+
+/* ---------- game ---------- */
+let G=null,raf=0,timers=[];
+const later=(fn,ms)=>{const t=setTimeout(fn,ms);timers.push(t);return t};
+function clearAll(){timers.forEach(clearTimeout);timers=[];cancelAnimationFrame(raf)}
+function show(id){['intro','play','result'].forEach(s=>$(s).hidden=s!==id);window.scrollTo({top:0})}
+
+function newGame(){
+  const ps=shuffle(PROBLEMS.slice()).slice(0,NQ);
+  G={name:G?G.name:'',i:0,score:0,streak:0,best:0,correct:0,times:[],missed:[],locked:true,
+     items:ps.map(p=>({p,opts:shuffle([{k:p.k,roots:p.r,correct:true},...pickDistractors(p)])}))};
+}
+function startGame(name){
+  clearAll();const nm=name;newGame();G.name=nm;
+  $('score').textContent='0';$('combo').textContent='0';
+  show('play');renderQ();G.locked=true;
+  const cd=$('cd');cd.hidden=false;let n=3;cd.textContent=n;
+  const step=()=>{n--;if(n>0){cd.textContent=n;later(step,600)}else{cd.hidden=true;beginTimer()}};
+  later(step,600);
+}
+function renderQ(){
+  const {p,opts}=G.items[G.i];
+  $('qn').innerHTML=`${G.i+1} <small>/ ${G.items.length}</small>`;
+  const fp=$('fp');fp.innerHTML='';fp.appendChild(fpSVG(p));
+  const box=$('opts');box.innerHTML='';
+  opts.forEach((o,j)=>{const b=document.createElement('button');b.type='button';b.className='opt';b.id=`opt-${j}`;b.setAttribute('aria-label',`보기 ${j+1}`);
+    b.innerHTML=`<span class="lab">${LABELS[j]}<kbd>${j+1}</kbd></span>`;b.appendChild(shapeSVG(o.k,o.roots));
+    b.addEventListener('click',()=>answer(j));box.appendChild(b)});
+  $('verdict').textContent='';$('verdict').className='verdict';
+  $('bar').style.transform='scaleX(1)';$('timer').classList.remove('low');$('tleft').textContent=LIMIT.toFixed(1)+'초';
+}
+function beginTimer(){
+  G.t0=performance.now();G.locked=false;
+  const tick=()=>{const left=Math.max(0,QTIME-(performance.now()-G.t0));
+    $('bar').style.transform=`scaleX(${left/QTIME})`;$('tleft').textContent=(left/1000).toFixed(1)+'초';
+    $('timer').classList.toggle('low',left<Math.min(1500,QTIME*0.3));
+    if(left<=0){answer(null);return}raf=requestAnimationFrame(tick)};
+  raf=requestAnimationFrame(tick);
+}
+function answer(j){
+  if(!G||G.locked)return;G.locked=true;cancelAnimationFrame(raf);
+  const el_=performance.now()-G.t0,left=Math.max(0,QTIME-el_);
+  const {p,opts}=G.items[G.i],ci=opts.findIndex(o=>o.correct);
+  const btns=[...document.querySelectorAll('#opts .opt')];btns.forEach(b=>b.disabled=true);
+  btns[ci].classList.add('ok');
+  const v=$('verdict');
+  if(j===ci){
+    G.streak++;G.best=Math.max(G.best,G.streak);G.correct++;G.times.push(el_);
+    const pts=100+Math.round(100*left/QTIME)+Math.min(50,10*(G.streak-1));G.score+=pts;
+    btns.forEach((b,i)=>{if(i!==ci)b.classList.add('dim')});
+    v.className='verdict ok';v.textContent=G.streak>1?`정답! ${G.streak}콤보`:'정답!';
+    $('score').textContent=G.score.toLocaleString();
+    const pop=document.createElement('span');pop.className='pop';pop.textContent='+'+pts;$('score').appendChild(pop);
+  }else{
+    G.streak=0;if(j!==null)btns[j].classList.add('bad');
+    btns.forEach((b,i)=>{if(i!==ci&&i!==j)b.classList.add('dim')});
+    v.className='verdict bad';v.textContent=j===null?'시간 초과! 정답은 '+LABELS[ci]:'아쉬워요! 정답은 '+LABELS[ci];
+    G.missed.push({p,picked:j===null?null:opts[j]});
+  }
+  $('combo').textContent=G.streak;
+  later(next,j===ci?750:1500);
+}
+function next(){G.i++;if(G.i>=G.items.length)return finish();renderQ();beginTimer()}
+
+async function finish(){
+  show('result');
+  $('resName').textContent=G.name;$('resScore').textContent=G.score.toLocaleString();
+  $('resCorrect').textContent=`${G.correct} / ${G.items.length}`;
+  $('resAvg').textContent=G.times.length?(G.times.reduce((a,b)=>a+b,0)/G.times.length/1000).toFixed(2)+'초':'-';
+  $('resCombo').textContent=G.best;
+  const rv=$('review');rv.innerHTML='';
+  if(!G.missed.length)rv.innerHTML='<p class="note">모두 맞혔어요.</p>';
+  G.missed.forEach((m,i)=>{const d=document.createElement('div');d.className='rv';
+    d.innerHTML=`<h3>${i+1}. ${m.picked?'고른 답이 틀렸어요':'시간 안에 고르지 못했어요'}</h3>`;
+    const a=document.createElement('div');a.className='mini';a.innerHTML='<span>도함수</span>';a.appendChild(fpSVG(m.p));
+    const b=document.createElement('div');b.className='mini';b.innerHTML='<span>정답 개형</span>';b.appendChild(shapeSVG(m.p.k,m.p.r));
+    const e=document.createElement('div');e.className='exp';e.innerHTML=signTable(m.p);
+    d.append(a,b,e);rv.appendChild(d)});
+  const st=$('lbResStatus');st.hidden=false;st.textContent='랭킹에 등록하는 중…';$('lbRes').innerHTML='';
+  const res=await postLB(G.name,G.score,G.correct);
+  if(res){renderLB($('lbRes'),st,res,res.id);st.hidden=false;st.textContent=`전체 ${res.total}개 기록 중 ${res.rank}위예요.`}
+  else renderLB($('lbRes'),st,null);
+}
+
+/* ---------- time limit ---------- */
+function applyLimit(){QTIME=LIMIT*1000;document.querySelectorAll('.tlimit').forEach(e=>e.textContent=LIMIT+'초');$('tset').value=LIMIT}
+function linkFor(t){const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('t',t);return u.toString()}
+$('tset').addEventListener('input',()=>{$('tErr').textContent=''});
+$('tApply').addEventListener('click',()=>{
+  const v=Number($('tset').value);
+  if(!Number.isInteger(v)||v<TMIN||v>TMAX){$('tErr').textContent=`${TMIN}초에서 ${TMAX}초 사이의 정수로 입력해 주세요.`;return}
+  LIMIT=v;applyLimit();refreshIntroLB();
+  const link=linkFor(v);
+  try{history.replaceState(null,'',link)}catch(e){}
+  const box=$('tLink');box.hidden=false;box.value=link;
+  const done=()=>{$('tNote').textContent=`${v}초 링크를 복사했어요. 학생들에게 이 링크를 보내 주세요.`};
+  const fallback=()=>{box.focus();box.select();$('tNote').textContent='위 링크를 복사해서 학생들에게 보내 주세요.'};
+  try{navigator.clipboard.writeText(link).then(done,fallback)}catch(e){fallback()}
+});
+applyLimit();
+
+/* ---------- wiring ---------- */
+try{const s=localStorage.getItem('dgs-nick');if(s)$('nick').value=s}catch(e){}
+$('nick').addEventListener('input',()=>{$('nickErr').textContent=''});
+$('startForm').addEventListener('submit',e=>{e.preventDefault();
+  const v=$('nick').value.trim();
+  if(!v){$('nickErr').textContent='닉네임을 입력해야 랭킹에 올라가요.';$('nick').focus();return}
+  try{localStorage.setItem('dgs-nick',v)}catch(e){}
+  G=G||{};G.name=v;startGame(v)});
+$('againBtn').addEventListener('click',()=>startGame(G.name));
+$('homeBtn').addEventListener('click',()=>{clearAll();show('intro');refreshIntroLB()});
+document.addEventListener('keydown',e=>{if($('play').hidden||!G||G.locked)return;const n=parseInt(e.key,10);if(n>=1&&n<=6){e.preventDefault();answer(n-1)}});
+refreshIntroLB();
+</script>
