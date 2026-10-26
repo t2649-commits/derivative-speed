@@ -106,13 +106,6 @@ th{font-family:var(--f-math);font-style:italic}
 .tag{font-size:.72rem;color:var(--accent);display:block;line-height:1.2}
 ul.why{margin:0;padding-left:1.2em}
 .note{color:var(--muted);font-size:.85rem;margin:0}
-.teacher{border-top:1px solid var(--line);padding-top:10px}
-.teacher summary{cursor:pointer;color:var(--muted);font-size:.9rem;font-weight:500}
-.teacher .tbody{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-input[type=number]{font:inherit;width:5em;padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);font-variant-numeric:tabular-nums}
-input[type=number]:focus{outline:none;border-color:var(--accent)}
-#tLink{font-size:.85rem}
-button.btn.small{padding:7px 14px;font-size:.88rem;white-space:nowrap}
 .lbt{font-family:var(--f-body);font-weight:400;font-size:.9rem;color:var(--muted)}
 @media (max-width:640px){.intro,.grid2{grid-template-columns:minmax(0,1fr)} .q{grid-template-columns:minmax(0,1fr)} .q .fp{max-width:320px} .opts{grid-template-columns:repeat(2,minmax(0,1fr))} .opt .lab kbd{display:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -136,20 +129,6 @@ button.btn.small{padding:7px 14px;font-size:.88rem;white-space:nowrap}
       <p class="err" id="nickErr"></p>
       <div class="row"><button class="btn" type="submit" id="startBtn">시작하기</button></div>
     </form>
-    <details class="teacher" id="teacher">
-      <summary>선생님 설정</summary>
-      <div class="tbody">
-        <label for="tset">한 문제당 제한시간</label>
-        <div class="row" style="flex-wrap:nowrap">
-          <input type="number" id="tset" min="3" max="30" step="1" value="5">
-          <span>초</span>
-          <button class="btn ghost small" type="button" id="tApply">적용하고 링크 복사</button>
-        </div>
-        <p class="err" id="tErr"></p>
-        <input type="text" id="tLink" readonly hidden aria-label="학생에게 보낼 링크">
-        <p class="note" id="tNote">3초에서 30초까지 정할 수 있어요. 만든 링크로 들어온 학생은 그 시간으로 풀고, 랭킹도 시간별로 따로 쌓여요.</p>
-      </div>
-    </details>
   </div>
   <div class="panel lb">
     <h2>랭킹 <small class="lbt">· <span class="tlimit">5초</span></small></h2>
@@ -210,9 +189,8 @@ button.btn.small{padding:7px 14px;font-size:.88rem;white-space:nowrap}
 
 <script>
 const API='/api/leaderboard';
-const NQ=20, TMIN=3, TMAX=30;
-function readLimit(){try{const v=parseInt(new URLSearchParams(location.search).get('t'),10);if(v>=TMIN&&v<=TMAX)return v}catch(e){}return 5}
-let LIMIT=readLimit(), QTIME=LIMIT*1000;
+const NQ=20;
+let LIMIT=5, QTIME=LIMIT*1000;
 const PROBLEMS=[
  {k:2, r:[]},
  {k:-1,r:[]},
@@ -329,9 +307,11 @@ function renderLB(listEl,statusEl,data,meId){
   data.top.forEach((e,i)=>{const li=document.createElement('li');if(meId&&e.id===meId)li.className='me';
     li.innerHTML=`<span class="rk">${i+1}</span><span class="nm">${esc(e.name)}</span><span class="sc">${e.score.toLocaleString()}</span>`;listEl.appendChild(li)});
 }
-async function getLB(){try{const r=await fetch(`${API}?limit=${LIMIT}`,{cache:'no-store'});if(!r.ok)throw 0;return await r.json()}catch(e){return null}}
-async function postLB(name,score,correct){try{const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,score,correct,limit:LIMIT})});if(!r.ok)throw 0;return await r.json()}catch(e){return null}}
-async function refreshIntroLB(){const st=$('lbIntroStatus');st.hidden=false;st.textContent='불러오는 중…';const d=await getLB();renderLB($('lbIntro'),st,d)}
+async function getLB(){try{const r=await fetch(API,{cache:'no-store'});if(!r.ok)throw 0;const d=await r.json();if(d.limit){LIMIT=d.limit;applyLimit()}return d}catch(e){return null}}
+async function postLB(name,score,correct){try{const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,score,correct,limit:LIMIT})});
+  if(r.status===409){const d=await r.json();return {conflict:true,limit:d.limit}}if(!r.ok)throw 0;return await r.json()}catch(e){return null}}
+async function refreshIntroLB(){const st=$('lbIntroStatus');st.hidden=false;st.textContent='불러오는 중…';const d=await getLB();renderLB($('lbIntro'),st,d);return d}
+function applyLimit(){QTIME=LIMIT*1000;document.querySelectorAll('.tlimit').forEach(e=>e.textContent=LIMIT+'초')}
 
 /* ---------- game ---------- */
 let G=null,raf=0,timers=[];
@@ -412,36 +392,23 @@ async function finish(){
     d.append(a,b,e);rv.appendChild(d)});
   const st=$('lbResStatus');st.hidden=false;st.textContent='랭킹에 등록하는 중…';$('lbRes').innerHTML='';
   const res=await postLB(G.name,G.score,G.correct);
-  if(res){renderLB($('lbRes'),st,res,res.id);st.hidden=false;st.textContent=`전체 ${res.total}개 기록 중 ${res.rank}위예요.`}
+  if(res&&res.conflict){LIMIT=res.limit;applyLimit();const d=await getLB();renderLB($('lbRes'),st,d);st.hidden=false;st.textContent=`게임 도중 선생님이 제한시간을 ${res.limit}초로 바꿔서 이번 기록은 등록되지 않았어요. 다시 도전해 주세요.`}
+  else if(res){renderLB($('lbRes'),st,res,res.id);st.hidden=false;st.textContent=`전체 ${res.total}개 기록 중 ${res.rank}위예요.`}
   else renderLB($('lbRes'),st,null);
 }
-
-/* ---------- time limit ---------- */
-function applyLimit(){QTIME=LIMIT*1000;document.querySelectorAll('.tlimit').forEach(e=>e.textContent=LIMIT+'초');$('tset').value=LIMIT}
-function linkFor(t){const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('t',t);return u.toString()}
-$('tset').addEventListener('input',()=>{$('tErr').textContent=''});
-$('tApply').addEventListener('click',()=>{
-  const v=Number($('tset').value);
-  if(!Number.isInteger(v)||v<TMIN||v>TMAX){$('tErr').textContent=`${TMIN}초에서 ${TMAX}초 사이의 정수로 입력해 주세요.`;return}
-  LIMIT=v;applyLimit();refreshIntroLB();
-  const link=linkFor(v);
-  try{history.replaceState(null,'',link)}catch(e){}
-  const box=$('tLink');box.hidden=false;box.value=link;
-  const done=()=>{$('tNote').textContent=`${v}초 링크를 복사했어요. 학생들에게 이 링크를 보내 주세요.`};
-  const fallback=()=>{box.focus();box.select();$('tNote').textContent='위 링크를 복사해서 학생들에게 보내 주세요.'};
-  try{navigator.clipboard.writeText(link).then(done,fallback)}catch(e){fallback()}
-});
-applyLimit();
 
 /* ---------- wiring ---------- */
 try{const s=localStorage.getItem('dgs-nick');if(s)$('nick').value=s}catch(e){}
 $('nick').addEventListener('input',()=>{$('nickErr').textContent=''});
-$('startForm').addEventListener('submit',e=>{e.preventDefault();
+$('startForm').addEventListener('submit',async e=>{e.preventDefault();
   const v=$('nick').value.trim();
   if(!v){$('nickErr').textContent='닉네임을 입력해야 랭킹에 올라가요.';$('nick').focus();return}
   try{localStorage.setItem('dgs-nick',v)}catch(e){}
+  const b=$('startBtn');b.disabled=true;b.textContent='준비 중…';
+  await getLB();
+  b.disabled=false;b.textContent='시작하기';
   G=G||{};G.name=v;startGame(v)});
-$('againBtn').addEventListener('click',()=>startGame(G.name));
+$('againBtn').addEventListener('click',async()=>{await getLB();startGame(G.name)});
 $('homeBtn').addEventListener('click',()=>{clearAll();show('intro');refreshIntroLB()});
 document.addEventListener('keydown',e=>{if($('play').hidden||!G||G.locked)return;const n=parseInt(e.key,10);if(n>=1&&n<=6){e.preventDefault();answer(n-1)}});
 refreshIntroLB();

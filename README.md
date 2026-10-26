@@ -1,38 +1,41 @@
 # 도함수 개형 스피드
 
-도함수 그래프를 보고 5초 안에 함수의 개형을 고르는 게임과, 계정 없이 누구나 볼 수 있는 랭킹입니다.
+도함수 그래프를 보고 제한시간 안에 함수의 개형을 고르는 게임과, 계정 없이 누구나 볼 수 있는 랭킹입니다.
+
+- 학생용: `사이트주소/`
+- 선생님용: `사이트주소/teacher/` (비밀번호 필요)
 
 ## 폴더 구성
 
-- `src/game.html` : 게임 화면 (문제 수정은 여기서)
-- `build.mjs` : 배포할 때 `public/index.html`을 만들어 줌
-- `netlify/functions/leaderboard.mjs` : 랭킹 저장·조회 API (`/api/leaderboard`)
+- `src/game.html` : 학생용 게임 화면 (문제 수정은 여기서)
+- `src/teacher.html` : 선생님 페이지 (제한시간 변경, 랭킹 보기·초기화)
+- `build.mjs` : 배포할 때 `public` 폴더에 실제 페이지를 만들어 줌
+- `netlify/functions/leaderboard.mjs` : 랭킹 저장·조회 (`/api/leaderboard`)
+- `netlify/functions/teacher.mjs` : 선생님 기능 (`/api/teacher`)
+- `netlify/lib/common.mjs` : 두 기능이 함께 쓰는 코드
 - `netlify.toml`, `package.json` : 넷리파이 설정
 
-랭킹은 Netlify Blobs에 저장되므로 따로 데이터베이스를 만들 필요가 없습니다.
+랭킹과 제한시간은 Netlify Blobs에 저장되므로 따로 데이터베이스를 만들 필요가 없습니다.
 
-## 배포 방법 (둘 중 하나)
+## 선생님 비밀번호 등록 (처음 한 번)
 
-**방법 1. GitHub로 연결 (추천)**
-1. 이 폴더를 GitHub 저장소에 올립니다.
-2. 넷리파이에서 Add new site → Import an existing project → 그 저장소를 고릅니다.
-3. 설정은 `netlify.toml`에 들어 있으니 그대로 Deploy를 누릅니다.
+1. 넷리파이 프로젝트 → Project configuration → Environment variables
+2. Add a variable → Add a single variable
+3. Key: `TEACHER_PASSWORD` / Value: 원하는 비밀번호 → Create variable
+4. 비밀번호를 등록하거나 바꾼 뒤에는 Deploys → Trigger deploy → Deploy project 로 한 번 다시 배포해야 적용됩니다.
 
-**방법 2. 넷리파이 CLI**
-```
-npm install
-npx netlify-cli login
-npx netlify-cli deploy --build --prod
-```
+비밀번호는 코드에 들어 있지 않으므로 GitHub 저장소가 공개되어 있어도 알 수 없습니다.
 
-주의: 폴더를 넷리파이 화면에 끌어다 놓는 방식(드래그 앤 드롭)은 빌드와 함수 설치를 하지 않아서, 게임은 보여도 랭킹이 작동하지 않을 수 있습니다.
+## 제한시간과 랭킹
 
-## 제한시간 정하기
+- 선생님 페이지에서 제한시간(3~30초)을 바꾸면, 그 뒤에 시작하는 모든 학생 게임에 적용됩니다.
+- 학생은 주소를 고쳐도 시간을 바꿀 수 없습니다.
+- 랭킹은 제한시간별로 따로 쌓입니다. 게임 도중 시간을 바꾸면 그 판의 기록은 등록되지 않습니다.
+- 선생님 페이지의 "랭킹 초기화"를 누르면 모든 기록이 지워집니다.
 
-시작 화면 아래쪽 "선생님 설정"을 열고 시간(3~30초)을 넣은 뒤 "적용하고 링크 복사"를 누르세요.
-복사된 링크(예: `https://사이트주소/?t=8`)를 학생들에게 보내면 그 시간으로 게임이 진행됩니다.
-주소 끝의 `?t=숫자`만 바꿔서 보내도 됩니다. 링크에 시간이 없으면 5초입니다.
-랭킹은 제한시간별로 따로 쌓입니다.
+## 다시 배포하기 (코드를 바꿨을 때)
+
+GitHub 저장소 화면 → Add file → Upload files 로 바뀐 파일을 같은 위치에 올리고 Commit changes 를 누르면, 넷리파이가 자동으로 다시 배포합니다.
 
 ## 문제 바꾸기
 
@@ -43,9 +46,4 @@ npx netlify-cli deploy --build --prod
 - `{k:2, r:[]}` → f′(x) = 2 (상수함수)
 
 오답 보기 5개는 자동으로 만들어집니다. 문제 은행에는 21문제가 있고, 한 판에 그중 20문제가 무작위 순서로 나옵니다.
-한 판의 문제 수는 `src/game.html`의 `NQ` 값으로 바꿀 수 있으며, 바꾸면 `netlify/functions/leaderboard.mjs`의 `MAX_SCORE`(문제 수 × 250)도 함께 바꿔 주세요.
-
-## 랭킹 초기화
-
-넷리파이 사이트 화면의 Blobs 메뉴에서 `derivative-speed` 저장소의 항목을 지우면 됩니다.
-항목 이름이 `t5/`, `t10/`처럼 제한시간으로 시작하므로 특정 시간의 랭킹만 지울 수도 있습니다.
+한 판의 문제 수는 `src/game.html`의 `NQ` 값으로 바꿀 수 있으며, 바꾸면 `netlify/lib/common.mjs`의 `NQ`도 같은 값으로 바꿔 주세요.
