@@ -4,8 +4,8 @@ import { getStore } from "@netlify/blobs";
 export const DEFAULT_LIMIT = 5;
 export const TMIN = 3;
 export const TMAX = 30;
-export const NQ = 20;
-export const MAX_SCORE = NQ * 250; // 문제 20개 × (정답 100 + 시간 100 + 콤보 50)
+export const NQ = 10;
+export const MAX_SCORE = NQ * 250; // 문제 10개 × (정답 100 + 시간 100 + 콤보 50)
 export const TOP_N = 20;
 
 export const scoreStore = () => getStore({ name: "derivative-speed", consistency: "strong" });

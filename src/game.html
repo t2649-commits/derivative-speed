@@ -119,7 +119,7 @@ ul.why{margin:0;padding-left:1.2em}
     <h1>도함수 개형 스피드</h1>
     <ul class="rules">
       <li>도함수 <span class="m">y = f ′(x)</span>의 그래프를 보고 <span class="m">y = f(x)</span>의 개형을 골라요.</li>
-      <li>문제는 <b>20개</b>, 한 문제에 <b class="tlimit">5초</b>예요.</li>
+      <li>문제는 <b>10개</b>(도함수가 상수 2, 일차 2, 이차 3, 삼차 3), 한 문제에 <b class="tlimit">5초</b>예요.</li>
       <li>정답 100점에 남은 시간만큼 최대 100점이 더해지고, 연속으로 맞히면 콤보 점수가 붙어요.</li>
       <li>컴퓨터에서는 숫자 키 <b>1~6</b>으로도 고를 수 있어요.</li>
     </ul>
@@ -141,7 +141,7 @@ ul.why{margin:0;padding-left:1.2em}
   <div class="panel stage" style="display:flex;flex-direction:column;gap:14px">
     <div class="cd" id="cd" hidden>3</div>
     <div class="hud">
-      <div class="qn" id="qn">1 <small>/ 20</small></div>
+      <div class="qn" id="qn">1 <small>/ 10</small></div>
       <div class="right">
         <div class="stat combo"><span>콤보</span><b id="combo">0</b></div>
         <div class="stat"><span>점수</span><b id="score">0</b></div>
@@ -167,7 +167,7 @@ ul.why{margin:0;padding-left:1.2em}
       <div class="row"><button class="btn" id="againBtn" type="button">다시 도전</button><button class="btn ghost" id="homeBtn" type="button">처음 화면</button></div>
     </div>
     <div class="tiles">
-      <div class="tile"><span>맞힌 문제</span><b id="resCorrect">0 / 20</b></div>
+      <div class="tile"><span>맞힌 문제</span><b id="resCorrect">0 / 10</b></div>
       <div class="tile"><span>평균 응답</span><b id="resAvg">-</b></div>
       <div class="tile"><span>최고 콤보</span><b id="resCombo">0</b></div>
     </div>
@@ -189,31 +189,37 @@ ul.why{margin:0;padding-left:1.2em}
 
 <script>
 const API='/api/leaderboard';
-const NQ=20;
+const NQ=10;
 let LIMIT=5, QTIME=LIMIT*1000;
+/* 도함수의 차수별 출제 수: 상수 2, 일차 2, 이차 3, 삼차 3 */
+const MIX={0:2,1:2,2:3,3:3};
+/* f′(x) = k · Π(x − r)^m.  k = 0 이면 f′(x) = 0 (y = 0) */
 const PROBLEMS=[
+ {k:0, r:[], must:true},
  {k:2, r:[]},
  {k:-1,r:[]},
+ {k:3, r:[]},
+ {k:-2,r:[]},
+ {k:2, r:[[-1,1]]},
+ {k:-2,r:[[1,1]]},
+ {k:3, r:[[0,1]]},
+ {k:-1,r:[[2,1]]},
  {k:3, r:[[-1,1],[2,1]]},
  {k:-3,r:[[0,1],[2,1]]},
  {k:3, r:[[1,2]]},
- {k:-4,r:[[0,2],[1,1]]},
+ {k:-3,r:[[-1,2]]},
+ {k:-2,r:[[-2,1],[1,1]]},
+ {k:2, r:[[0,2]]},
  {k:4, r:[[-1,1],[1,1],[3,1]]},
  {k:4, r:[[0,1],[3,2]]},
  {k:-4,r:[[-2,1],[0,1],[2,1]]},
  {k:4, r:[[-1,2],[2,1]]},
  {k:-4,r:[[1,3]]},
- {k:5, r:[[-1,1],[0,2],[2,1]]},
- {k:2, r:[[-1,1]]},
- {k:-2,r:[[1,1]]},
- {k:-3,r:[[-1,2]]},
+ {k:-4,r:[[0,2],[1,1]]},
  {k:4, r:[[1,3]]},
- {k:-4,r:[[-1,1],[2,2]]},
- {k:5, r:[[0,3],[2,1]]},
- {k:-5,r:[[-1,1],[1,1],[2,2]]},
- {k:5, r:[[-2,1],[-1,1],[1,1],[2,1]]},
- {k:-5,r:[[-1,2],[1,2]]}
+ {k:-4,r:[[-1,1],[2,2]]}
 ];
+const pdeg=p=>p.r.reduce((s,a)=>s+a[1],0);
 const LABELS=['①','②','③','④','⑤','⑥'];
 const NS='http://www.w3.org/2000/svg';
 const $=id=>document.getElementById(id);
@@ -225,8 +231,12 @@ const ev=(c,x)=>c.reduceRight((s,a)=>s*x+a,0);
 const integ=c=>[0,...c.map((a,i)=>a/(i+1))];
 const sorted=r=>[...r].sort((a,b)=>a[0]-b[0]);
 function signs(k,roots){const R=sorted(roots);const s=new Array(R.length+1);s[R.length]=Math.sign(k);for(let i=R.length-1;i>=0;i--)s[i]=s[i+1]*(R[i][1]%2?-1:1);return s}
-function sig(k,roots){const R=sorted(roots),s=signs(k,R);let t=[s[0]>0?'+':'-'];R.forEach((_,i)=>{t.push(s[i]===s[i+1]?'flat':(s[i]<0?'min':'max'));t.push(s[i+1]>0?'+':'-')});return t.join('|')}
+function sig(k,roots){if(k===0)return '0';const R=sorted(roots),s=signs(k,R);let t=[s[0]>0?'+':'-'];R.forEach((_,i)=>{t.push(s[i]===s[i+1]?'flat':(s[i]<0?'min':'max'));t.push(s[i+1]>0?'+':'-')});return t.join('|')}
 function candidates(p){
+  if(p.k===0){
+    const up={k:1,roots:[],d:0,s:'+'},down={k:-1,roots:[],d:0,s:'-'};
+    return [up,down,...candidates({k:1,r:[]}).filter(c=>c.s!=='-'&&c.s!=='0').map(c=>({...c,d:c.d+1}))];
+  }
   const R=sorted(p.r),base=R.map(x=>({r:x[0],o:x[1]}));
   const sets=[{roots:base,d:0}];
   if(R.length>1)R.forEach((_,i)=>sets.push({roots:base.filter((_,j)=>j!==i),d:1}));
@@ -241,6 +251,7 @@ function candidates(p){
       const k=p.k*sg,s=sig(k,roots);if(s===target)continue;
       if(!best.has(s)||best.get(s).d>d)best.set(s,{k,roots,d,s});
     }}
+  if(R.length<=1)best.set('0',{k:0,roots:[],d:1.5,s:'0'});
   return [...best.values()];
 }
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
@@ -255,7 +266,7 @@ function shapeSVG(k,roots){
   const R=sorted(roots),W=180,H=118,F=integ(polyFrom(k,R)),[a,b]=domainOf(R,false);
   const N=300,pts=[];let mn=Infinity,mx=-Infinity;
   for(let i=0;i<=N;i++){const x=a+(b-a)*i/N,y=ev(F,x);pts.push([x,y]);mn=Math.min(mn,y);mx=Math.max(mx,y)}
-  let lo=mn,hi=mx;
+  let lo=mn,hi=mx;if(hi-lo<1e-9){lo-=1;hi+=1}
   if(R.length){const cv=R.map(r=>ev(F,r[0])),cmn=Math.min(...cv),cmx=Math.max(...cv),sp=cmx-cmn;if(sp>1e-9){lo=Math.max(mn,cmn-0.9*sp);hi=Math.min(mx,cmx+0.9*sp)}}
   const X=x=>8+(x-a)/(b-a)*(W-16),Y=y=>H-10-(y-lo)/(hi-lo)*(H-20);
   const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,'aria-hidden':'true'});const id='c'+uid();
@@ -268,7 +279,7 @@ function fpSVG(p){
   const N=300,pts=[];for(let i=0;i<=N;i++){const x=a+(b-a)*i/N;pts.push([x,ev(C,x)])}
   let ext;
   if(R.length){const ys=[0];pts.forEach(([x,y])=>{if(x>=R[0][0]-0.6&&x<=R[R.length-1][0]+0.6)ys.push(y)});ext=Math.max(Math.abs(Math.min(...ys)),Math.abs(Math.max(...ys)),1e-6)}
-  else ext=Math.abs(p.k);
+  else ext=Math.abs(p.k)||1;
   const mx=ext*1.6,X=x=>14+(x-a)/(b-a)*(W-28),Y=y=>H/2-(y/mx)*(H/2-16);
   const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':'도함수 그래프'});const id='f'+uid();
   const cp=el('clipPath',{id},el('defs',{},svg));el('rect',{x:0,y:6,width:W,height:H-12},cp);
@@ -281,11 +292,12 @@ function fpSVG(p){
   t(W-14,Y(0)+18,'x','middle');t(X(0)+8,16,'y');t(X(0)-6,Y(0)+17,'O','end');
   R.forEach(([r])=>{if(r!==0){el('line',{x1:X(r),y1:Y(0)-3,x2:X(r),y2:Y(0)+3,stroke:'var(--muted)'},svg);const above=ev(C,r+0.15)<0&&ev(C,r-0.15)<0;t(X(r),above?Y(0)-8:Y(0)+18,neg(r),'middle')}});
   el('path',{d:pts.map((q,i)=>(i?'L':'M')+X(q[0]).toFixed(1)+' '+Y(q[1]).toFixed(1)).join(''),fill:'none',stroke:'var(--ink)','stroke-width':2.2,'clip-path':`url(#${id})`},svg);
-  const lab=el('text',{x:W-12,y:p.k>0&&!R.length?Y(0)+34:24,'text-anchor':'end'},svg);lab.textContent='y = f ′(x)';
+  const lab=el('text',{x:W-12,y:p.k===0?Y(0)-10:p.k>0&&!R.length?Y(0)+34:24,'text-anchor':'end'},svg);lab.textContent='y = f ′(x)';
   return svg;
 }
 function signTable(p){
   const R=sorted(p.r),s=signs(p.k,R);
+  if(p.k===0)return `<p><span class="m">f ′(x)</span> = 0 이므로 <span class="m">f(x)</span>는 증가도 감소도 하지 않는 상수함수예요. 그래프는 <span class="m">x</span>축에 평행한 직선이에요.</p>`;
   if(!R.length)return `<p><span class="m">f ′(x)</span> = ${neg(p.k)} 으로 항상 ${p.k>0?'양수':'음수'}이므로 <span class="m">f(x)</span>는 계속 ${p.k>0?'증가':'감소'}하는 직선이에요. 극값은 없어요.</p>`;
   let h='<tr><th>x</th>',d='<tr><th>f ′(x)</th>',f='<tr><th>f(x)</th>';
   R.forEach(([r],i)=>{h+=`<td>…</td><td>${neg(r)}</td>`;d+=`<td>${s[i]>0?'+':'−'}</td><td>0</td>`;
@@ -320,7 +332,11 @@ function clearAll(){timers.forEach(clearTimeout);timers=[];cancelAnimationFrame(
 function show(id){['intro','play','result'].forEach(s=>$(s).hidden=s!==id);window.scrollTo({top:0})}
 
 function newGame(){
-  const ps=shuffle(PROBLEMS.slice()).slice(0,NQ);
+  const ps=[];
+  for(const d in MIX){const pool=PROBLEMS.filter(p=>pdeg(p)===Number(d));
+    const must=pool.filter(p=>p.must),rest=shuffle(pool.filter(p=>!p.must));
+    ps.push(...must,...rest.slice(0,MIX[d]-must.length))}
+  shuffle(ps);
   G={name:G?G.name:'',i:0,score:0,streak:0,best:0,correct:0,times:[],missed:[],locked:true,
      items:ps.map(p=>({p,opts:shuffle([{k:p.k,roots:p.r,correct:true},...pickDistractors(p)])}))};
 }
